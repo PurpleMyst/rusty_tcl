@@ -17,7 +17,7 @@ pub(crate) struct Tcl_Interp {
     errorLine: c_int,
 }
 
-#[allow(non_camel_case_types)]
+#[allow(non_snake_case, non_camel_case_types)]
 #[link(name = "tcl8.5")]
 extern "C" {
     pub(crate) fn Tcl_CreateInterp() -> *mut Tcl_Interp;

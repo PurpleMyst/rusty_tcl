@@ -7,16 +7,23 @@ mod tests {
     use std::ffi::CString;
     use {completion_code, interp};
 
+    macro_rules! cstr {
+        ($s:expr) => {
+            CString::new($s).unwrap()
+        }
+    }
+
     #[test]
     fn it_works() {
         let mut interp = interp::TclInterp::new().unwrap();
-        assert_eq!(
-            interp.eval(CString::new("expr {2 + 2}").unwrap()),
-            completion_code::CompletionCode::Ok
-        );
-        assert_eq!(
-            interp.get_string_result(),
-            CString::new("4").unwrap().as_ref()
-        );
+
+        macro_rules! tcl_assert_eq {
+            ($cc:expr, $expected:expr) => {{
+                assert_eq!($cc, completion_code::CompletionCode::Ok);
+                assert_eq!(interp.get_string_result(), cstr!($expected).as_ref());
+            }}
+        };
+
+        tcl_assert_eq!(interp.eval(cstr!("expr {2 + 2}")), "4");
     }
 }
