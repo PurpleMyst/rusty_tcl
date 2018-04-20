@@ -4,6 +4,7 @@ use std::ffi::CStr;
 use std::os::raw::c_int;
 use std::ptr::NonNull;
 
+/// Interpreter struct that holds the Tcl interpreter itself.
 // TODO: mark this not thread safe
 pub struct TclInterp {
     interp_ptr: NonNull<tcl_ffi::Tcl_Interp>,
@@ -16,6 +17,9 @@ impl Drop for TclInterp {
 }
 
 impl TclInterp {
+    /// Creates a new interpreter.
+    /// # Errors
+    /// This function returns None if the pointer returned by [`Tcl_CreateInterp`](https://www.tcl.tk/man/tcl/TclLib/CrtInterp.htm) is null.
     pub fn new() -> Option<Self> {
         let interp_ptr = unsafe { tcl_ffi::Tcl_CreateInterp() };
 
@@ -24,6 +28,7 @@ impl TclInterp {
         })
     }
 
+    /// Fetches the interpreter's internal string result.
     pub fn get_string_result<'a>(&self) -> &'a CStr {
         unsafe { CStr::from_ptr(tcl_ffi::Tcl_GetStringResult(self.interp_ptr.as_ptr())) }
     }
@@ -40,6 +45,11 @@ impl TclInterp {
         }
     }
 
+    /// Evaluates a piece of Tcl code.
+    ///
+    /// # Notes
+    /// This just returns a [`CompletionCode`], to get the code's result you need to use
+    /// [`TclInterp::get_string_result`].
     pub fn eval(&mut self, code: impl AsRef<CStr>) -> CompletionCode {
         let raw_completion_code =
             unsafe { tcl_ffi::Tcl_Eval(self.interp_ptr.as_ptr(), code.as_ref().as_ptr()) };
