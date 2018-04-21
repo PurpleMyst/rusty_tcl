@@ -1,4 +1,6 @@
+//! A module that holds the [`TclInterp`](struct.TclInterp.html) struct.
 use super::{completion_code::CompletionCode, tcl_ffi};
+
 use std::convert::AsRef;
 use std::ffi::CStr;
 use std::os::raw::c_int;
@@ -18,13 +20,29 @@ impl Drop for TclInterp {
 
 impl TclInterp {
     /// Creates a new interpreter.
+    ///
+    /// # Panics
+    /// This function panics if the pointer returned by [`Tcl_CreateInterp`](https://www.tcl.tk/man/tcl/TclLib/CrtInterp.htm) is NULL.
+    /// This will change in the future so this method will return an [`Err`] when this happens.
+    ///
     /// # Errors
-    /// This function returns None if the pointer returned by [`Tcl_CreateInterp`](https://www.tcl.tk/man/tcl/TclLib/CrtInterp.htm) is null.
-    pub fn new() -> Option<Self> {
-        let interp_ptr = unsafe { tcl_ffi::Tcl_CreateInterp() };
+    /// This function returns an [`Err`] value with a [`CompletionCode::Error`] if [`Tcl_AppInit`](https://tcl.tk/man/tcl/TclLib/AppInit.htm) returns an error completion code.
+    pub fn new() -> Result<Self, CompletionCode> {
+        // TODO: Use `Option::ok_or_else` here.
+        let interp_ptr = NonNull::new(unsafe { tcl_ffi::Tcl_CreateInterp() }).unwrap();
 
-        Some(Self {
-            interp_ptr: NonNull::new(interp_ptr)?,
+        let mut this = Self { interp_ptr, };
+
+        if let err @ CompletionCode::Error(_) = this.app_init() {
+            return Err(err)
+        }
+
+        Ok(this)
+    }
+
+    fn app_init<'a>(&'a mut self) -> CompletionCode {
+        self.completioncode_from_int(unsafe {
+            tcl_ffi::Tcl_Init(self.interp_ptr.as_ptr())
         })
     }
 
@@ -36,7 +54,7 @@ impl TclInterp {
     fn completioncode_from_int(&self, raw_completion_code: c_int) -> CompletionCode {
         match raw_completion_code {
             tcl_ffi::TCL_OK => CompletionCode::Ok,
-            tcl_ffi::TCL_ERROR => CompletionCode::Error(self.get_string_result()),
+            tcl_ffi::TCL_ERROR => CompletionCode::Error(self.get_string_result().to_owned()),
             tcl_ffi::TCL_RETURN => CompletionCode::Return,
             tcl_ffi::TCL_BREAK => CompletionCode::Break,
             tcl_ffi::TCL_CONTINUE => CompletionCode::Continue,

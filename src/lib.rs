@@ -1,3 +1,6 @@
+//! A simple crate that allow to use the Tcl C library in a more rustic way.
+#![warn(missing_docs)]
+
 pub mod completion_code;
 pub mod interp;
 mod tcl_ffi;

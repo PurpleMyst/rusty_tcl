@@ -26,4 +26,6 @@ extern "C" {
     pub(crate) fn Tcl_Eval(interp: *mut Tcl_Interp, script: *const c_char) -> c_int;
 
     pub(crate) fn Tcl_GetStringResult(interp: *mut Tcl_Interp) -> *const c_char;
+
+    pub(crate) fn Tcl_Init(interp: *mut Tcl_Interp) -> c_int;
 }
