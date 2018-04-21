@@ -28,5 +28,8 @@ mod tests {
         };
 
         tcl_assert_eq!(interp.eval(cstr!("expr {2 + 2}")), "4");
+
+        assert!(interp.set_var(cstr!("x"), cstr!("5")).is_ok());
+        tcl_assert_eq!(interp.eval(cstr!("return $x")), "5");
     }
 }

@@ -74,4 +74,23 @@ impl TclInterp {
 
         self.completioncode_from_int(raw_completion_code)
     }
+
+    /// Sets a variable with the given `name` to the given `value`.
+    ///
+    /// # Notes
+    /// This returns the value that `name` was set to, which may differ from `value` due to
+    /// tracing.
+    pub fn set_var<'a>(&mut self, name: impl AsRef<CStr>, value: impl AsRef<CStr>) -> Result<&'a CStr, CompletionCode> {
+        let flags: c_int = tcl_ffi::TCL_LEAVE_ERR_MSG;
+
+        let result_ptr = unsafe {
+            tcl_ffi::Tcl_SetVar(self.interp_ptr.as_ptr(), name.as_ref().as_ptr(), value.as_ref().as_ptr(), flags)
+        };
+
+        if result_ptr.is_null() {
+            Err(CompletionCode::Error(self.get_string_result().to_owned()))
+        } else {
+            Ok(unsafe { CStr::from_ptr(result_ptr) })
+        }
+    }
 }
