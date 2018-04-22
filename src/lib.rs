@@ -36,5 +36,8 @@ mod tests {
 
         assert!(interp.set_var(cstr!("x"), cstr!("5")).is_ok());
         tcl_assert_eq!(interp.eval(cstr!("return $x")), "5");
+
+        interp.make_safe().panic_if_error();
+        assert!(interp.is_safe());
     }
 }

@@ -51,6 +51,27 @@ impl TclInterp {
         unsafe { CStr::from_ptr(rusty_tcl_sys::Tcl_GetStringResult(self.interp_ptr.as_ptr())) }
     }
 
+    /// Make this interpreter safe.
+    ///
+    /// # Notes
+    /// As noted in the `Tcl_MakeSafe` man page, a "safe" interpreter only removes **core**
+    /// potentially-unsafe functions. It's **your** responsibility to make sure any extensions you
+    /// use are safe.
+    pub fn make_safe(&mut self) -> CompletionCode {
+        self.completioncode_from_int(unsafe { rusty_tcl_sys::Tcl_MakeSafe(self.interp_ptr.as_ptr()) })
+    }
+
+    /// Returns `true` if the current interpreter is safe.
+    pub fn is_safe(&self) -> bool {
+        let bad_bool = unsafe { rusty_tcl_sys::Tcl_IsSafe(self.interp_ptr.as_ptr()) };
+
+        match bad_bool {
+            0 => false,
+            1 => true,
+            _ => unreachable!(),
+        }
+    }
+
     fn completioncode_from_int(&self, raw_completion_code: c_int) -> CompletionCode {
         match raw_completion_code as c_uint {
             rusty_tcl_sys::TCL_OK => CompletionCode::Ok,
