@@ -1,9 +1,10 @@
 //! A simple crate that allow to use the Tcl C library in a more rustic way.
 #![warn(missing_docs)]
 
+extern crate rusty_tcl_sys;
+
 pub mod completion_code;
 pub mod interp;
-mod tcl_ffi;
 
 #[cfg(test)]
 mod tests {
@@ -22,7 +23,11 @@ mod tests {
 
         macro_rules! tcl_assert_eq {
             ($cc:expr, $expected:expr) => {{
-                assert_eq!($cc, completion_code::CompletionCode::Ok);
+                let cc = $cc;
+                if let completion_code::CompletionCode::Error(msg) = cc {
+                    panic!("{}", msg.into_string().unwrap());
+                }
+
                 assert_eq!(interp.get_string_result(), cstr!($expected).as_ref());
             }}
         };
