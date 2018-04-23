@@ -28,6 +28,7 @@ impl TclInterp {
     /// # Errors
     /// This function returns an [`Err`] value with a [`CompletionCode::Error`] if [`Tcl_AppInit`](https://tcl.tk/man/tcl/TclLib/AppInit.htm) returns an error completion code.
     pub fn new() -> Result<Self, CompletionCode> {
+        super::init();
         // TODO: Use `Option::ok_or_else` here.
         let interp_ptr = NonNull::new(unsafe { rusty_tcl_sys::Tcl_CreateInterp() }).unwrap();
 
