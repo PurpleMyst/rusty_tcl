@@ -116,3 +116,39 @@ impl TclInterp {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::ffi::CString;
+    use {CompletionCode, TclInterp};
+
+    macro_rules! cstr {
+        ($s:expr) => {
+            CString::new($s).unwrap()
+        }
+    }
+
+    #[test]
+    fn it_works() {
+        let mut interp = TclInterp::new().unwrap();
+
+        macro_rules! tcl_assert_eq {
+            ($cc:expr, $expected:expr) => {{
+                let cc = $cc;
+                if let CompletionCode::Error(msg) = cc {
+                    panic!("{}", msg.into_string().unwrap());
+                }
+
+                assert_eq!(interp.get_string_result(), cstr!($expected).as_ref());
+            }}
+        };
+
+        tcl_assert_eq!(interp.eval(cstr!("expr {2 + 2}")), "4");
+
+        assert!(interp.set_var(cstr!("x"), cstr!("5")).is_ok());
+        tcl_assert_eq!(interp.eval(cstr!("return $x")), "5");
+
+        interp.make_safe().panic_if_error();
+        assert!(interp.is_safe());
+    }
+}
