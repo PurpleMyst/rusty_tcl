@@ -12,12 +12,16 @@ pub struct TclObj {
 
 impl Clone for TclObj {
     fn clone(&self) -> Self {
-        let mut child = Self { obj_ptr: self.obj_ptr, is_alive: self.is_alive };
-        if self.is_alive { child.incr_ref_count(); }
+        let mut child = Self {
+            obj_ptr: self.obj_ptr,
+            is_alive: self.is_alive,
+        };
+        if self.is_alive {
+            child.incr_ref_count();
+        }
         child
     }
 }
-
 
 impl Drop for TclObj {
     fn drop(&mut self) {
@@ -33,7 +37,10 @@ impl TclObj {
     pub fn new() -> Option<Self> {
         super::init();
         let obj_ptr = NonNull::new(unsafe { rusty_tcl_sys::Tcl_NewObj() })?;
-        let mut this = Self { obj_ptr, is_alive: true };
+        let mut this = Self {
+            obj_ptr,
+            is_alive: true,
+        };
         this.incr_ref_count();
         Some(this)
     }
@@ -44,10 +51,10 @@ impl TclObj {
         assert!(self.is_alive);
 
         unsafe {
-        let obj_ptr = self.obj_ptr.as_ptr();
-        let mut tcl_obj = ::std::ptr::read_unaligned(obj_ptr);
-        tcl_obj.refCount += 1;
-        ::std::ptr::write_unaligned(obj_ptr, tcl_obj);
+            let obj_ptr = self.obj_ptr.as_ptr();
+            let mut tcl_obj = ::std::ptr::read_unaligned(obj_ptr);
+            tcl_obj.refCount += 1;
+            ::std::ptr::write_unaligned(obj_ptr, tcl_obj);
         }
     }
 
@@ -59,15 +66,17 @@ impl TclObj {
         assert!(self.is_alive);
 
         let should_free = unsafe {
-        let obj_ptr = self.obj_ptr.as_ptr();
-        let mut tcl_obj = ::std::ptr::read_unaligned(obj_ptr);
-        tcl_obj.refCount -= 1;
-        ::std::ptr::write_unaligned(obj_ptr, tcl_obj);
-        tcl_obj.refCount <= 0
+            let obj_ptr = self.obj_ptr.as_ptr();
+            let mut tcl_obj = ::std::ptr::read_unaligned(obj_ptr);
+            tcl_obj.refCount -= 1;
+            ::std::ptr::write_unaligned(obj_ptr, tcl_obj);
+            tcl_obj.refCount <= 0
         };
 
         if should_free {
-            unsafe { rusty_tcl_sys::TclFreeObj(self.obj_ptr.as_ptr()); }
+            unsafe {
+                rusty_tcl_sys::TclFreeObj(self.obj_ptr.as_ptr());
+            }
             self.is_alive = false;
             true
         } else {
@@ -92,10 +101,10 @@ mod tests {
         let obj1 = TclObj::new().unwrap();
 
         {
-        let obj2 = obj1.clone();
-        assert!(obj1.is_shared());
-        assert!(obj2.is_shared());
-        assert_eq!(obj1.obj_ptr, obj2.obj_ptr);
+            let obj2 = obj1.clone();
+            assert!(obj1.is_shared());
+            assert!(obj2.is_shared());
+            assert_eq!(obj1.obj_ptr, obj2.obj_ptr);
         }
 
         assert!(!obj1.is_shared());

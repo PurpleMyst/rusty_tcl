@@ -3,7 +3,7 @@ use super::{completion_code::CompletionCode, rusty_tcl_sys};
 
 use std::convert::AsRef;
 use std::ffi::CStr;
-use std::os::raw::{c_uint, c_int};
+use std::os::raw::{c_int, c_uint};
 use std::ptr::NonNull;
 
 /// Interpreter struct that holds the Tcl interpreter itself.
@@ -32,19 +32,17 @@ impl TclInterp {
         // TODO: Use `Option::ok_or_else` here.
         let interp_ptr = NonNull::new(unsafe { rusty_tcl_sys::Tcl_CreateInterp() }).unwrap();
 
-        let mut this = Self { interp_ptr, };
+        let mut this = Self { interp_ptr };
 
         if let err @ CompletionCode::Error(_) = this.app_init() {
-            return Err(err)
+            return Err(err);
         }
 
         Ok(this)
     }
 
     fn app_init<'a>(&'a mut self) -> CompletionCode {
-        self.completioncode_from_int(unsafe {
-            rusty_tcl_sys::Tcl_Init(self.interp_ptr.as_ptr())
-        })
+        self.completioncode_from_int(unsafe { rusty_tcl_sys::Tcl_Init(self.interp_ptr.as_ptr()) })
     }
 
     /// Fetches the interpreter's internal string result.
@@ -59,7 +57,9 @@ impl TclInterp {
     /// potentially-unsafe functions. It's **your** responsibility to make sure any extensions you
     /// use are safe.
     pub fn make_safe(&mut self) -> CompletionCode {
-        self.completioncode_from_int(unsafe { rusty_tcl_sys::Tcl_MakeSafe(self.interp_ptr.as_ptr()) })
+        self.completioncode_from_int(unsafe {
+            rusty_tcl_sys::Tcl_MakeSafe(self.interp_ptr.as_ptr())
+        })
     }
 
     /// Returns `true` if the current interpreter is safe.
@@ -102,11 +102,20 @@ impl TclInterp {
     /// # Notes
     /// This returns the value that `name` was set to, which may differ from `value` due to
     /// tracing.
-    pub fn set_var<'a>(&mut self, name: impl AsRef<CStr>, value: impl AsRef<CStr>) -> Result<&'a CStr, CompletionCode> {
+    pub fn set_var<'a>(
+        &mut self,
+        name: impl AsRef<CStr>,
+        value: impl AsRef<CStr>,
+    ) -> Result<&'a CStr, CompletionCode> {
         let flags: c_int = rusty_tcl_sys::TCL_LEAVE_ERR_MSG as c_int;
 
         let result_ptr = unsafe {
-            rusty_tcl_sys::Tcl_SetVar(self.interp_ptr.as_ptr(), name.as_ref().as_ptr(), value.as_ref().as_ptr(), flags)
+            rusty_tcl_sys::Tcl_SetVar(
+                self.interp_ptr.as_ptr(),
+                name.as_ref().as_ptr(),
+                value.as_ref().as_ptr(),
+                flags,
+            )
         };
 
         if result_ptr.is_null() {
@@ -125,7 +134,7 @@ mod tests {
     macro_rules! cstr {
         ($s:expr) => {
             CString::new($s).unwrap()
-        }
+        };
     }
 
     #[test]
@@ -140,7 +149,7 @@ mod tests {
                 }
 
                 assert_eq!(interp.get_string_result(), cstr!($expected).as_ref());
-            }}
+            }};
         };
 
         tcl_assert_eq!(interp.eval(cstr!("expr {2 + 2}")), "4");
