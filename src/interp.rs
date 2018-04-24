@@ -1,11 +1,19 @@
 //! A module that holds the [`TclInterp`](struct.TclInterp.html) struct.
-// TODO: Fix all the documentation.
-use super::{completion_code::CompletionCode, error::TclError, obj::TclObj, rusty_tcl_sys};
+use super::{error::TclError, obj::TclObj, rusty_tcl_sys};
 
-use std::{borrow::Cow,
-          ffi::{CStr, CString},
-          os::raw::{c_int, c_uint},
+use std::{ffi::{CStr, CString},
+          os::raw::c_int,
           ptr::NonNull};
+
+macro_rules! option_to_err {
+    ($option:expr) => {
+        if let Some(err) = $option {
+            Err(err)
+        } else {
+            Ok(())
+        }
+    };
+}
 
 /// Interpreter struct that holds the Tcl interpreter itself.
 // TODO: mark this not thread safe
@@ -41,7 +49,8 @@ impl TclInterp {
     }
 
     fn app_init<'a>(&'a mut self) -> Result<(), TclError> {
-        self.completioncode_from_int(unsafe { rusty_tcl_sys::Tcl_Init(self.interp_ptr.as_ptr()) })
+        let cc = unsafe { rusty_tcl_sys::Tcl_Init(self.interp_ptr.as_ptr()) };
+        option_to_err!(TclError::from_completion_code(&self, cc))
     }
 
     /// Fetches the interpreter's internal string result.
@@ -78,9 +87,9 @@ impl TclInterp {
     /// potentially-unsafe functions. It's **your** responsibility to make sure any extensions you
     /// use are safe.
     pub fn make_safe(&mut self) -> Result<(), TclError> {
-        self.completioncode_from_int(unsafe {
+        option_to_err!(TclError::from_completion_code(&self, unsafe {
             rusty_tcl_sys::Tcl_MakeSafe(self.interp_ptr.as_ptr())
-        })
+        }))
     }
 
     /// Returns `true` if the current interpreter is safe.
@@ -94,27 +103,10 @@ impl TclInterp {
         }
     }
 
-    fn completioncode_from_int(&self, raw_completion_code: c_int) -> Result<(), TclError> {
-        // TODO: Move this part to `CompletionCode`.
-        let cc = match raw_completion_code as c_uint {
-            rusty_tcl_sys::TCL_OK => CompletionCode::Ok,
-            rusty_tcl_sys::TCL_ERROR => {
-                CompletionCode::Error(Cow::from(self.get_string_result()?.to_owned()))
-            }
-            rusty_tcl_sys::TCL_RETURN => CompletionCode::Return,
-            rusty_tcl_sys::TCL_BREAK => CompletionCode::Break,
-            rusty_tcl_sys::TCL_CONTINUE => CompletionCode::Continue,
-
-            _ => panic!("Invalid completion code {:?}", raw_completion_code),
-        };
-
-        TclError::from_completion_code(cc)
-    }
-
     /// Evaluates a piece of Tcl code.
     ///
     /// # Notes
-    /// This just returns a [`CompletionCode`], to get the code's result you need to use
+    /// This just returns an unit value or an error, to get the actual result you need
     /// [`TclInterp::get_string_result`] or [`TclInterp::get_object_result`].
     pub fn eval(&mut self, code: &str) -> Result<(), TclError> {
         let c_code = CString::new(code).map_err(TclError::from)?;
@@ -122,7 +114,7 @@ impl TclInterp {
         let raw_completion_code =
             unsafe { rusty_tcl_sys::Tcl_Eval(self.interp_ptr.as_ptr(), c_code.as_ptr()) };
 
-        self.completioncode_from_int(raw_completion_code)
+        option_to_err!(TclError::from_completion_code(&self, raw_completion_code))
     }
 
     /// Sets a variable with the given `name` to the given `value`.
@@ -133,11 +125,11 @@ impl TclInterp {
     /// # Notes
     /// This returns the value that `name` was set to, which may differ from `value` due to
     /// tracing.
-    pub fn set_var<'a>(
+    pub fn set_var(
         &mut self,
         name: impl Into<Vec<u8>>,
         value: impl Into<Vec<u8>>,
-    ) -> Result<&'a CStr, TclError> {
+    ) -> Result<&CStr, TclError> {
         let flags: c_int = rusty_tcl_sys::TCL_LEAVE_ERR_MSG as c_int;
 
         let result_ptr = unsafe {
@@ -150,8 +142,7 @@ impl TclInterp {
         };
 
         if result_ptr.is_null() {
-            let cc = CompletionCode::Error(Cow::from(self.get_string_result()?.to_owned()));
-            Err(TclError::InternalError(cc))
+            Err(TclError::from_string_result(&self))
         } else {
             Ok(unsafe { CStr::from_ptr(result_ptr) })
         }

@@ -1,6 +1,6 @@
 [package]
 name = "rusty-tcl"
-version = "0.7.0"
+version = "0.8.0"
 readme = "README.md"
 authors = ["Purple Myst <PurpleMyst@users.noreply.github.com>"]
 

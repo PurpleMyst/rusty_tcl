@@ -5,17 +5,17 @@ use std::{env,
           sync::{Once, ONCE_INIT}};
 
 extern crate failure;
+
 #[macro_use]
 extern crate failure_derive;
 
 extern crate rusty_tcl_sys;
 
-pub mod completion_code;
 pub mod error;
 pub mod interp;
 pub mod obj;
 
-pub use completion_code::CompletionCode;
+pub use error::TclError;
 pub use interp::TclInterp;
 pub use obj::TclObj;
 
