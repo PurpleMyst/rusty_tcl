@@ -1,5 +1,5 @@
 //! A module that holds the [`TclInterp`](struct.TclInterp.html) struct.
-use super::{completion_code::CompletionCode, rusty_tcl_sys};
+use super::{completion_code::CompletionCode, obj::TclObj, rusty_tcl_sys};
 
 use std::{borrow::Cow,
           ffi::{CStr, CString},
@@ -51,9 +51,20 @@ impl TclInterp {
     /// This function panics if the interpreter's internal string result is invalid UTF-8. This
     /// should never happen.
     pub fn get_string_result(&self) -> &str {
-        let c_result: &CStr =
+        // TODO: Check the validity of the pointer we pass to `CStr::from_ptr`.
+        let c_result =
             unsafe { CStr::from_ptr(rusty_tcl_sys::Tcl_GetStringResult(self.interp_ptr.as_ptr())) };
         c_result.to_str().unwrap()
+    }
+
+    /// Fetches the interpreter's internal object result.
+    ///
+    /// # Errors
+    /// This functions returns `None` if the pointer returned by `Tcl_GetObjResult` is NULL.
+    pub fn get_object_result(&self) -> Option<TclObj> {
+        let c_obj = unsafe { rusty_tcl_sys::Tcl_GetObjResult(self.interp_ptr.as_ptr()) };
+
+        TclObj::from_ptr(c_obj)
     }
 
     /// Make this interpreter safe.
@@ -162,5 +173,7 @@ mod tests {
 
         interp.make_safe().panic_if_error();
         assert!(interp.is_safe());
+
+        // TODO: Test `get_object_result`
     }
 }

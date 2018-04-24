@@ -36,9 +36,14 @@ impl TclObj {
     /// This returns `None` when the pointer retruned by `Tcl_NewObj` is NULL.
     pub fn new() -> Option<Self> {
         super::init();
-        let obj_ptr = NonNull::new(unsafe { rusty_tcl_sys::Tcl_NewObj() })?;
+        let obj_ptr = unsafe { rusty_tcl_sys::Tcl_NewObj() };
+        Self::from_ptr(obj_ptr)
+    }
+
+    pub(crate) fn from_ptr(obj_ptr: *mut rusty_tcl_sys::Tcl_Obj) -> Option<Self> {
+        super::init();
         let mut this = Self {
-            obj_ptr,
+            obj_ptr: NonNull::new(obj_ptr)?,
             is_alive: true,
         };
         this.incr_ref_count();
@@ -52,6 +57,7 @@ impl TclObj {
 
         unsafe {
             let obj_ptr = self.obj_ptr.as_ptr();
+            // TODO: Do we need ::std::ptr::read_unaligned?
             let mut tcl_obj = ::std::ptr::read_unaligned(obj_ptr);
             tcl_obj.refCount += 1;
             ::std::ptr::write_unaligned(obj_ptr, tcl_obj);
