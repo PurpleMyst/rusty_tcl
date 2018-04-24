@@ -1,9 +1,11 @@
 //! A module that contains the [`TclObj`](struct.TclObj.html).
 use super::{error::TclError, rusty_tcl_sys};
 
-use std::ptr::NonNull;
+use std::ptr::{self, NonNull};
 
 /// A struct representing the `Tcl_Obj` type.
+// XXX: Should we use an `is_alive` bool? I'm fairly certain there's a way we can just use a `Rc`.
+// Maybe we could remove `decr_ref_count` entirely and just make it part of `Drop::drop`?
 #[derive(PartialEq, Eq, Debug)]
 pub struct TclObj {
     obj_ptr: NonNull<rusty_tcl_sys::Tcl_Obj>,
@@ -50,32 +52,27 @@ impl TclObj {
         Ok(this)
     }
 
-    /// Increments this object's reference count.
     // TODO: Use the `Tcl_IncrRefCount` macro here instead.
-    pub fn incr_ref_count(&mut self) {
+    // XXX: Do we need `ptr::read_unaligned`?
+    fn incr_ref_count(&mut self) {
         assert!(self.is_alive);
 
         unsafe {
             let obj_ptr = self.obj_ptr.as_ptr();
-            // TODO: Do we need ::std::ptr::read_unaligned?
-            let mut tcl_obj = ::std::ptr::read_unaligned(obj_ptr);
+            let mut tcl_obj = ptr::read_unaligned(obj_ptr);
             tcl_obj.refCount += 1;
-            ::std::ptr::write_unaligned(obj_ptr, tcl_obj);
+            ptr::write_unaligned(obj_ptr, tcl_obj);
         }
     }
 
-    /// Decrements this object's reference count and frees this struct's memory if the reference
-    /// count is now zero.
-    ///
-    /// Returns `true` if the underlying struct was freed.
-    pub fn decr_ref_count(&mut self) -> bool {
+    fn decr_ref_count(&mut self) -> bool {
         assert!(self.is_alive);
 
         let should_free = unsafe {
             let obj_ptr = self.obj_ptr.as_ptr();
-            let mut tcl_obj = ::std::ptr::read_unaligned(obj_ptr);
+            let mut tcl_obj = ptr::read_unaligned(obj_ptr);
             tcl_obj.refCount -= 1;
-            ::std::ptr::write_unaligned(obj_ptr, tcl_obj);
+            ptr::write_unaligned(obj_ptr, tcl_obj);
             tcl_obj.refCount <= 0
         };
 

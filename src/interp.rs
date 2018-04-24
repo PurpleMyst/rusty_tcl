@@ -24,7 +24,7 @@ impl TclInterp {
     /// # Errors
     /// This function returns an [`Err`] value if:
     ///     1. The pointer returned by `Tcl_CreateInterp` is NULL.
-    ///     2. 
+    ///     2. Initialization of the current interpreter via `Tcl_Init` fails.
     pub fn new() -> Result<Self, TclError> {
         super::init();
         let interp_ptr = NonNull::new(unsafe { rusty_tcl_sys::Tcl_CreateInterp() })
@@ -60,7 +60,10 @@ impl TclInterp {
         TclObj::from_ptr(c_obj)
     }
 
-    /// Make this interpreter safe.
+    /// Makes this interpreter safe.
+    ///
+    /// # Errors
+    /// This function returns an error when `Tcl_MakeSafe` fails.
     ///
     /// # Notes
     /// As noted in the `Tcl_MakeSafe` man page, a "safe" interpreter only removes **core**
@@ -133,7 +136,8 @@ impl TclInterp {
     /// Sets a variable with the given `name` to the given `value`.
     ///
     /// # Errors
-    /// This function an error if either `name` or `value` contain NUL bytes.
+    /// This function an error if either `name` or `value` contain NUL bytes, or if the pointer
+    /// returned by `Tcl_SetVar` is NULL.
     ///
     /// # Notes
     /// This returns the value that `name` was set to, which may differ from `value` due to
