@@ -43,24 +43,18 @@ impl TclInterp {
 
         let mut this = Self { interp_ptr };
 
-        this.app_init()?;
+        this.init()?;
 
         Ok(this)
     }
 
-    fn app_init<'a>(&'a mut self) -> Result<(), TclError> {
+    // XXX: Can we refactor this out?
+    fn init(&mut self) -> Result<(), TclError> {
         let cc = unsafe { rusty_tcl_sys::Tcl_Init(self.interp_ptr.as_ptr()) };
         option_to_err!(TclError::from_completion_code(&self, cc))
     }
 
-    /// Fetches the interpreter's internal string result.
-    ///
-    /// # Errors
-    /// This function returns an error if the interpreter's internal string result contains bytes
-    /// that are invalid UTF-8, which should never happen.
-    ///
-    /// It also returns an error when the interpreter's internal string result is NULL.
-    pub fn get_string_result(&self) -> Result<&str, TclError> {
+    pub(crate) fn get_string_result(&self) -> Result<&str, TclError> {
         let c_str = unsafe { rusty_tcl_sys::Tcl_GetStringResult(self.interp_ptr.as_ptr()) };
 
         if c_str.is_null() {
@@ -70,11 +64,7 @@ impl TclInterp {
         }
     }
 
-    /// Fetches the interpreter's internal object result.
-    ///
-    /// # Errors
-    /// This functions returns an error when [`TclObj::from_ptr`] does.
-    pub fn get_object_result(&self) -> Result<TclObj, TclError> {
+    pub(crate) fn get_object_result(&self) -> Result<TclObj, TclError> {
         let c_obj = unsafe { rusty_tcl_sys::Tcl_GetObjResult(self.interp_ptr.as_ptr()) };
 
         TclObj::from_ptr(c_obj)
@@ -103,12 +93,7 @@ impl TclInterp {
         }
     }
 
-    /// Evaluates a piece of Tcl code.
-    ///
-    /// # Notes
-    /// This just returns an unit value or an error, to get the actual result you need
-    /// [`TclInterp::get_string_result`] or [`TclInterp::get_object_result`].
-    pub fn eval(&mut self, code: &str) -> Result<(), TclError> {
+    fn eval(&mut self, code: &str) -> Result<(), TclError> {
         let c_code = CString::new(code).map_err(TclError::from)?;
 
         let raw_completion_code =
@@ -117,6 +102,37 @@ impl TclInterp {
         option_to_err!(TclError::from_completion_code(&self, raw_completion_code))
     }
 
+    /// Evaluates code, returning the interpreter's string result.
+    ///
+    /// # Errors
+    /// This function returns any errors that happen in the code as a
+    /// `Err(TclError::InternalError(..))`, and it also returns any errors that happen when getting
+    /// the interpreter's string result.
+    pub fn eval_to_string(&mut self, code: &str) -> Result<&str, TclError> {
+        match self.eval(code) {
+            Ok(()) => self.get_string_result(),
+
+            // NB: This is not the same as `err @ Err(_) => err`.
+            Err(err) => Err(err),
+        }
+    }
+
+    /// Evaluates code, returning the interpreter's object result.
+    ///
+    /// # Errors
+    /// This function returns any errors that happen in the code as a
+    /// `Err(TclError::InternalError(..))`, and it also returns any errors that happen when getting
+    /// the interpreter's object result.
+    pub fn eval_to_obj(&mut self, code: &str) -> Result<TclObj, TclError> {
+        match self.eval(code) {
+            Ok(()) => self.get_object_result(),
+
+            // NB: This is not the same as `err @ Err(_) => err`.
+            Err(err) => Err(err),
+        }
+    }
+
+    // TODO: Make this not panic.
     /// Sets a variable with the given `name` to the given `value`.
     ///
     /// # Panics
@@ -154,24 +170,29 @@ mod tests {
     use TclInterp;
 
     #[test]
-    fn it_works() {
+    fn eval_to_string() {
         let mut interp = TclInterp::new().unwrap();
 
-        macro_rules! tcl_assert_eq {
-            ($cc:expr, $expected:expr) => {{
-                assert_eq!($cc.unwrap(), ());
-                assert_eq!(interp.get_string_result().unwrap(), $expected);
-            }};
-        };
+        assert_eq!(interp.eval_to_string("expr {2 + 2}").unwrap(), "4");
+    }
 
-        tcl_assert_eq!(interp.eval("expr {2 + 2}"), "4");
+    #[test]
+    fn eval_to_object() {
+        // TODO
+    }
 
-        assert!(interp.set_var("x", "5").is_ok());
-        tcl_assert_eq!(interp.eval("return $x"), "5");
+    #[test]
+    fn set_var() {
+        let mut interp = TclInterp::new().unwrap();
 
+        interp.set_var("x", "5").unwrap();
+        assert_eq!(interp.eval_to_string("return $x").unwrap(), "5");
+    }
+
+    #[test]
+    fn safety() {
+        let mut interp = TclInterp::new().unwrap();
         interp.make_safe().unwrap();
         assert!(interp.is_safe());
-
-        // TODO: Test `get_object_result`
     }
 }
