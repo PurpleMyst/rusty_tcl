@@ -1,8 +1,6 @@
 //! A module that contains the [`TclError`](enum.TclError.html) enum.
-use super::{interp::TclInterp, rusty_tcl_sys};
 
 use std::{ffi::NulError,
-          os::raw::{c_int, c_uint},
           str::Utf8Error};
 
 #[derive(Debug, Fail)]
@@ -27,27 +25,9 @@ pub enum TclError {
     InternalError(String),
 }
 
-impl TclError {
-    pub(crate) fn from_string_result(interp: &TclInterp) -> TclError {
-        match interp.get_string_result() {
-            Ok(msg) => TclError::InternalError(msg.to_owned()),
-
-            // XXX: What should we do here?
-            Err(e) => e,
-        }
-    }
-
-    pub(crate) fn from_completion_code(interp: &TclInterp, cc: c_int) -> Option<TclError> {
-        if let rusty_tcl_sys::TCL_ERROR = cc as c_uint {
-            Some(Self::from_string_result(&interp))
-        } else {
-            None
-        }
-    }
-}
-
 impl From<Utf8Error> for TclError {
     fn from(_err: Utf8Error) -> TclError {
+        // TODO: Also have the actual string?
         TclError::InvalidUtf8
     }
 }
