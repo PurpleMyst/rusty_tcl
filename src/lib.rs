@@ -4,9 +4,14 @@ use std::{env,
           ffi::CString,
           sync::{Once, ONCE_INIT}};
 
+extern crate failure;
+#[macro_use]
+extern crate failure_derive;
+
 extern crate rusty_tcl_sys;
 
 pub mod completion_code;
+pub mod error;
 pub mod interp;
 pub mod obj;
 
@@ -28,6 +33,5 @@ pub fn init() {
             rusty_tcl_sys::Tcl_FindExecutable(arg0.as_ptr());
             assert!(!rusty_tcl_sys::Tcl_GetNameOfExecutable().is_null());
         }
-        // TODO: Call Tcl_Init?
     });
 }

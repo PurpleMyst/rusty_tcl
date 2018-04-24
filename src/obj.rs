@@ -1,5 +1,5 @@
 //! A module that contains the [`TclObj`](struct.TclObj.html).
-use super::rusty_tcl_sys;
+use super::{error::TclError, rusty_tcl_sys};
 
 use std::ptr::NonNull;
 
@@ -34,20 +34,20 @@ impl TclObj {
     ///
     /// # Errors
     /// This returns `None` when the pointer retruned by `Tcl_NewObj` is NULL.
-    pub fn new() -> Option<Self> {
+    pub fn new() -> Result<Self, TclError> {
         super::init();
         let obj_ptr = unsafe { rusty_tcl_sys::Tcl_NewObj() };
         Self::from_ptr(obj_ptr)
     }
 
-    pub(crate) fn from_ptr(obj_ptr: *mut rusty_tcl_sys::Tcl_Obj) -> Option<Self> {
+    pub(crate) fn from_ptr(obj_ptr: *mut rusty_tcl_sys::Tcl_Obj) -> Result<Self, TclError> {
         super::init();
         let mut this = Self {
-            obj_ptr: NonNull::new(obj_ptr)?,
+            obj_ptr: NonNull::new(obj_ptr).ok_or(TclError::NullPointer)?,
             is_alive: true,
         };
         this.incr_ref_count();
-        Some(this)
+        Ok(this)
     }
 
     /// Increments this object's reference count.

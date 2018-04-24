@@ -1,5 +1,6 @@
 //! A module that holds the [`TclInterp`](struct.TclInterp.html) struct.
-use super::{completion_code::CompletionCode, obj::TclObj, rusty_tcl_sys};
+// TODO: Fix all the documentation.
+use super::{completion_code::CompletionCode, error::TclError, obj::TclObj, rusty_tcl_sys};
 
 use std::{borrow::Cow,
           ffi::{CStr, CString},
@@ -21,47 +22,50 @@ impl Drop for TclInterp {
 impl TclInterp {
     /// Creates a new interpreter.
     ///
-    /// # Panics
-    /// This function panics if the pointer returned by [`Tcl_CreateInterp`](https://www.tcl.tk/man/tcl/TclLib/CrtInterp.htm) is NULL.
-    /// This will change in the future so this method will return an [`Err`] when this happens.
     ///
     /// # Errors
-    /// This function returns an [`Err`] value with a [`CompletionCode::Error`] if [`Tcl_AppInit`](https://tcl.tk/man/tcl/TclLib/AppInit.htm) returns an error completion code.
-    pub fn new() -> Result<Self, CompletionCode<'static>> {
+    /// This function returns an [`Err`] value if:
+    ///     1. The pointer returned by `Tcl_CreateInterp` is NULL.
+    ///     2. [`TclError::from_completion_code`] returns an Err given the completion code from
+    ///        `Tcl_Init`.
+    pub fn new() -> Result<Self, TclError> {
         super::init();
-        // TODO: Use `Option::ok_or_else` here.
-        let interp_ptr = NonNull::new(unsafe { rusty_tcl_sys::Tcl_CreateInterp() }).unwrap();
+        let interp_ptr = NonNull::new(unsafe { rusty_tcl_sys::Tcl_CreateInterp() })
+            .ok_or(TclError::NullPointer)?;
 
         let mut this = Self { interp_ptr };
 
-        if let CompletionCode::Error(err_msg) = this.app_init() {
-            return Err(CompletionCode::Error(Cow::from(err_msg.into_owned())));
-        }
+        this.app_init()?;
 
         Ok(this)
     }
 
-    fn app_init<'a>(&'a mut self) -> CompletionCode {
+    fn app_init<'a>(&'a mut self) -> Result<(), TclError> {
         self.completioncode_from_int(unsafe { rusty_tcl_sys::Tcl_Init(self.interp_ptr.as_ptr()) })
     }
 
     /// Fetches the interpreter's internal string result.
     ///
-    /// # Panics
-    /// This function panics if the interpreter's internal string result is invalid UTF-8. This
-    /// should never happen.
-    pub fn get_string_result(&self) -> &str {
-        // TODO: Check the validity of the pointer we pass to `CStr::from_ptr`.
-        let c_result =
-            unsafe { CStr::from_ptr(rusty_tcl_sys::Tcl_GetStringResult(self.interp_ptr.as_ptr())) };
-        c_result.to_str().unwrap()
+    /// # Errors
+    /// This function returns an error if the interpreter's internal string result contains bytes
+    /// that are invalid UTF-8, which should never happen.
+    ///
+    /// It also returns an error when the interpreter's internal string result is NULL.
+    pub fn get_string_result(&self) -> Result<&str, TclError> {
+        let c_str = unsafe { rusty_tcl_sys::Tcl_GetStringResult(self.interp_ptr.as_ptr()) };
+
+        if c_str.is_null() {
+            Err(TclError::NullPointer)
+        } else {
+            unsafe { CStr::from_ptr(c_str).to_str().map_err(TclError::from) }
+        }
     }
 
     /// Fetches the interpreter's internal object result.
     ///
     /// # Errors
-    /// This functions returns `None` if the pointer returned by `Tcl_GetObjResult` is NULL.
-    pub fn get_object_result(&self) -> Option<TclObj> {
+    /// This functions returns an error when [`TclObj::from_ptr`] does.
+    pub fn get_object_result(&self) -> Result<TclObj, TclError> {
         let c_obj = unsafe { rusty_tcl_sys::Tcl_GetObjResult(self.interp_ptr.as_ptr()) };
 
         TclObj::from_ptr(c_obj)
@@ -73,7 +77,7 @@ impl TclInterp {
     /// As noted in the `Tcl_MakeSafe` man page, a "safe" interpreter only removes **core**
     /// potentially-unsafe functions. It's **your** responsibility to make sure any extensions you
     /// use are safe.
-    pub fn make_safe(&mut self) -> CompletionCode {
+    pub fn make_safe(&mut self) -> Result<(), TclError> {
         self.completioncode_from_int(unsafe {
             rusty_tcl_sys::Tcl_MakeSafe(self.interp_ptr.as_ptr())
         })
@@ -90,28 +94,30 @@ impl TclInterp {
         }
     }
 
-    fn completioncode_from_int(&self, raw_completion_code: c_int) -> CompletionCode {
-        match raw_completion_code as c_uint {
+    fn completioncode_from_int(&self, raw_completion_code: c_int) -> Result<(), TclError> {
+        // TODO: Move this part to `CompletionCode`.
+        let cc = match raw_completion_code as c_uint {
             rusty_tcl_sys::TCL_OK => CompletionCode::Ok,
-            rusty_tcl_sys::TCL_ERROR => CompletionCode::Error(Cow::from(self.get_string_result())),
+            rusty_tcl_sys::TCL_ERROR => {
+                CompletionCode::Error(Cow::from(self.get_string_result()?.to_owned()))
+            }
             rusty_tcl_sys::TCL_RETURN => CompletionCode::Return,
             rusty_tcl_sys::TCL_BREAK => CompletionCode::Break,
             rusty_tcl_sys::TCL_CONTINUE => CompletionCode::Continue,
 
             _ => panic!("Invalid completion code {:?}", raw_completion_code),
-        }
+        };
+
+        TclError::from_completion_code(cc)
     }
 
     /// Evaluates a piece of Tcl code.
     ///
-    /// # Panics
-    /// This function panics if `code` contains NULL bytes.
-    ///
     /// # Notes
     /// This just returns a [`CompletionCode`], to get the code's result you need to use
-    /// [`TclInterp::get_string_result`].
-    pub fn eval(&mut self, code: impl Into<Vec<u8>>) -> CompletionCode {
-        let c_code = CString::new(code).unwrap();
+    /// [`TclInterp::get_string_result`] or [`TclInterp::get_object_result`].
+    pub fn eval(&mut self, code: &str) -> Result<(), TclError> {
+        let c_code = CString::new(code).map_err(TclError::from)?;
 
         let raw_completion_code =
             unsafe { rusty_tcl_sys::Tcl_Eval(self.interp_ptr.as_ptr(), c_code.as_ptr()) };
@@ -131,7 +137,7 @@ impl TclInterp {
         &mut self,
         name: impl Into<Vec<u8>>,
         value: impl Into<Vec<u8>>,
-    ) -> Result<&'a CStr, CompletionCode> {
+    ) -> Result<&'a CStr, TclError> {
         let flags: c_int = rusty_tcl_sys::TCL_LEAVE_ERR_MSG as c_int;
 
         let result_ptr = unsafe {
@@ -144,7 +150,8 @@ impl TclInterp {
         };
 
         if result_ptr.is_null() {
-            Err(CompletionCode::Error(Cow::from(self.get_string_result())))
+            let cc = CompletionCode::Error(Cow::from(self.get_string_result()?.to_owned()));
+            Err(TclError::InternalError(cc))
         } else {
             Ok(unsafe { CStr::from_ptr(result_ptr) })
         }
@@ -161,8 +168,8 @@ mod tests {
 
         macro_rules! tcl_assert_eq {
             ($cc:expr, $expected:expr) => {{
-                $cc.panic_if_error();
-                assert_eq!(interp.get_string_result(), $expected);
+                assert_eq!($cc.unwrap(), ());
+                assert_eq!(interp.get_string_result().unwrap(), $expected);
             }};
         };
 
@@ -171,7 +178,7 @@ mod tests {
         assert!(interp.set_var("x", "5").is_ok());
         tcl_assert_eq!(interp.eval("return $x"), "5");
 
-        interp.make_safe().panic_if_error();
+        interp.make_safe().unwrap();
         assert!(interp.is_safe());
 
         // TODO: Test `get_object_result`

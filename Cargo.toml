@@ -1,8 +1,10 @@
 [package]
 name = "rusty-tcl"
-version = "0.6.0"
+version = "0.7.0"
 readme = "README.md"
 authors = ["Purple Myst <PurpleMyst@users.noreply.github.com>"]
 
 [dependencies]
 rusty-tcl-sys = { "path" = "./rusty-tcl-sys", version = "1.0.0" }
+failure = "0.1.1"
+failure_derive = "0.1.1"
