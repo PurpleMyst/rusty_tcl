@@ -1,5 +1,9 @@
 ---
 
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y tcl8.5 tcl8.5-dev
+
 language: rust
 
 rust:
@@ -10,6 +14,7 @@ rust:
 matrix:
   allow_failures:
     - rust: nightly
+
   fast_finish: true
 
 cache: cargo
