@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["TclObj","A struct representing the `Tcl_Obj` type."]]});

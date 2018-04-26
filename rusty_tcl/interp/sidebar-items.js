@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["TclInterp","Interpreter struct that holds the Tcl interpreter itself."]]});
