@@ -22,11 +22,7 @@ fn read_tcl_config() -> Vec<String> {
     get_tcl_config_paths()
         .lines()
         .filter_map(|path| {
-            let mut contents = String::new();
-            fs::File::open(path)
-                .unwrap()
-                .read_to_string(&mut contents)
-                .unwrap();
+            let contents = fs::read_to_string(path).unwrap();
             let mut lines = contents
                 .lines()
                 .map(|line| line.trim())
