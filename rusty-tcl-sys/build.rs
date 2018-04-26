@@ -1,23 +1,25 @@
 extern crate bindgen;
-#[macro_use]
-extern crate failure;
 
 use std::{collections::HashMap, env, fs, io::Read, path::PathBuf, process::Command};
 
 #[cfg(target_family = "unix")]
-fn get_tcl_config_paths() -> Result<String, failure::Error> {
-    Ok(String::from_utf8(
-        Command::new("locate").arg("tclConfig.sh").output()?.stdout,
-    )?)
+fn get_tcl_config_paths() -> String {
+    String::from_utf8(
+        Command::new("locate")
+            .arg("tclConfig.sh")
+            .output()
+            .unwrap()
+            .stdout,
+    ).unwrap()
 }
 
 #[cfg(not(target_family = "unix"))]
-fn get_tcl_config_paths() -> Result<String, Error> {
+fn get_tcl_config_paths() -> String {
     compile_error!("Currently, rusty-tcl-sys only supports *nix. Your help in supporting more platforms would be greatly appreciated!")
 }
 
-fn read_tcl_config() -> Result<Vec<String>, failure::Error> {
-    get_tcl_config_paths()?
+fn read_tcl_config() -> Vec<String> {
+    get_tcl_config_paths()
         .lines()
         .filter_map(|path| {
             let mut contents = String::new();
@@ -42,11 +44,11 @@ fn read_tcl_config() -> Result<Vec<String>, failure::Error> {
             }
         })
         .next()
-        .ok_or_else(|| format_err!("Could not find a valid tclConfig.sh"))
+        .expect("Could not find a valid tclConfig.sh")
 }
 
-fn parse_tcl_config() -> Result<HashMap<String, String>, failure::Error> {
-    Ok(read_tcl_config()?
+fn parse_tcl_config() -> HashMap<String, String> {
+    read_tcl_config()
         .into_iter()
         .filter_map(|line| {
             line.find('=')
@@ -67,11 +69,11 @@ fn parse_tcl_config() -> Result<HashMap<String, String>, failure::Error> {
                     (left, right)
                 })
         })
-        .collect())
+        .collect()
 }
 
 fn main() {
-    let vars = parse_tcl_config().unwrap();
+    let vars = parse_tcl_config();
 
     vars.get("TCL_LIB_SPEC")
         .expect("Could not read $TCL_LIB_SPEC")
