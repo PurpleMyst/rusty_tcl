@@ -15,5 +15,6 @@ authors = ["Purple Myst <PurpleMyst@users.noreply.github.com>"]
 
 [build-dependencies]
 bindgen = "0.26.3"
+failure = "0.1.1"
 
 [dependencies]
