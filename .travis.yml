@@ -8,7 +8,8 @@ before_install:
 language: rust
 
 rust:
-  - stable
+  # Don't test stable until `impl Trait` is in the stable channel (1.26, may 11th)
+  # - stable
   - beta
   - nightly
 
