@@ -1,6 +1,6 @@
 [package]
 name = "rusty-tcl"
-version = "0.9.6"
+version = "0.9.7"
 
 description = "Run tcl in Rust!"
 
@@ -9,6 +9,7 @@ repository = "https://github.com/PurpleMyst/rusty_tcl"
 license = "MIT"
 
 readme = "README.md"
+documentatation = "https://purplemyst.github.io/rusty_tcl"
 
 authors = ["Purple Myst <PurpleMyst@users.noreply.github.com>"]
 

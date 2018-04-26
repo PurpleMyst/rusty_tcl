@@ -7,6 +7,13 @@ scripting language into your rust programs.
 Until we reach 1.0.0, this library is *very* unstable. Breaking changes happen
 pretty much every version.
 
+Links
+-----
+
+- [Documentation](https://purplemyst.github.com/rusty_tcl)
+- [crates.io page](https://crates.io/crates/rusty-tcl)
+- [patreon page](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
+
 Requirements
 ------------
 
