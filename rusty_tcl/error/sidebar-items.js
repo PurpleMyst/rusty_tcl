@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["TclError","Represents different classes of Tcl Errors."]]});

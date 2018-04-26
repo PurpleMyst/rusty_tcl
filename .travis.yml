@@ -1,0 +1,22 @@
+---
+
+before_install:
+  - sudo apt-get -qq update
+  - sudo apt-get install -y tcl8.5 tcl8.5-dev
+  - sudo updatedb
+
+language: rust
+
+rust:
+  # Don't test stable until `impl Trait` is in the stable channel (1.26, may 11th)
+  # - stable
+  - beta
+  - nightly
+
+matrix:
+  allow_failures:
+    - rust: nightly
+
+  fast_finish: true
+
+cache: cargo
