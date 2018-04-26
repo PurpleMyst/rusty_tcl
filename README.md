@@ -10,7 +10,7 @@ pretty much every version.
 Links
 -----
 
-- [Documentation](https://purplemyst.github.com/rusty_tcl)
+- [Documentation](https://purplemyst.github.io/rusty_tcl)
 - [crates.io page](https://crates.io/crates/rusty-tcl)
 - [patreon page](https://www.youtube.com/watch?v=dQw4w9WgXcQ)
 
