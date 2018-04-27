@@ -21,12 +21,7 @@ pub use obj::TclObj;
 
 static TCL_INIT: Once = ONCE_INIT;
 
-/// Initialize the Tcl environment.
-///
-/// # Notes
-/// You should not need to call this normally. It's automagically called in [`TclObj::new`] and
-/// [`TclInterp::new`].
-pub fn init() {
+pub(crate) fn init() {
     TCL_INIT.call_once(|| {
         let arg0 = CString::new(env::args().nth(0).unwrap()).unwrap();
         unsafe {

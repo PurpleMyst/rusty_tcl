@@ -1,7 +1,6 @@
 //! A module that contains the [`TclError`](enum.TclError.html) enum.
 
-use std::{ffi::NulError,
-          str::Utf8Error};
+use std::{ffi::NulError, str::Utf8Error};
 
 #[derive(Debug, Fail)]
 /// Represents different classes of Tcl Errors.
