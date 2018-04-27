@@ -39,12 +39,10 @@
 <span id="39">39</span>
 <span id="40">40</span>
 <span id="41">41</span>
-<span id="42">42</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A module that contains the [`TclError`](enum.TclError.html) enum.</span>
 
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">ffi</span>::<span class="ident">NulError</span>,
-          <span class="ident">str</span>::<span class="ident">Utf8Error</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">ffi</span>::<span class="ident">NulError</span>, <span class="ident">str</span>::<span class="ident">Utf8Error</span>};
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Fail</span>)]</span>
 <span class="doccomment">/// Represents different classes of Tcl Errors.</span>

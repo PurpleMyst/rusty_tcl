@@ -113,30 +113,32 @@
 <span id="113">113</span>
 <span id="114">114</span>
 <span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
 </pre><pre class="rust ">
 <span class="doccomment">//! A module that contains the [`TclObj`](struct.TclObj.html).</span>
 <span class="kw">use</span> <span class="kw">super</span>::{<span class="ident">error</span>::<span class="ident">TclError</span>, <span class="ident">rusty_tcl_sys</span>};
 
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">ffi</span>::<span class="ident">CStr</span>,
+          <span class="ident">ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>}};
 
 <span class="doccomment">/// A struct representing the `Tcl_Obj` type.</span>
-<span class="comment">// XXX: Should we use an `is_alive` bool? I&#39;m fairly certain there&#39;s a way we can just use a `Rc`.</span>
-<span class="comment">// Maybe we could remove `decr_ref_count` entirely and just make it part of `Drop::drop`?</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Debug</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">TclObj</span> {
     <span class="ident">obj_ptr</span>: <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">rusty_tcl_sys</span>::<span class="ident">Tcl_Obj</span><span class="op">&gt;</span>,
-    <span class="ident">is_alive</span>: <span class="ident">bool</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Clone</span> <span class="kw">for</span> <span class="ident">TclObj</span> {
     <span class="kw">fn</span> <span class="ident">clone</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="self">Self</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">child</span> <span class="op">=</span> <span class="self">Self</span> {
             <span class="ident">obj_ptr</span>: <span class="self">self</span>.<span class="ident">obj_ptr</span>,
-            <span class="ident">is_alive</span>: <span class="self">self</span>.<span class="ident">is_alive</span>,
         };
-        <span class="kw">if</span> <span class="self">self</span>.<span class="ident">is_alive</span> {
-            <span class="ident">child</span>.<span class="ident">incr_ref_count</span>();
-        }
+        <span class="ident">child</span>.<span class="ident">incr_ref_count</span>();
         <span class="ident">child</span>
     }
 }
@@ -151,7 +153,10 @@
     <span class="doccomment">/// Creates a new, empty, Tcl object.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Errors</span>
-    <span class="doccomment">/// This returns `None` when the pointer retruned by `Tcl_NewObj` is NULL.</span>
+    <span class="doccomment">/// This returns `Err(TclError::NullPointer)` when the pointer returned by `Tcl_NewObj` is NULL.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Panics</span>
+    <span class="doccomment">/// This function panics if TCL itself fails to initialize.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">TclError</span><span class="op">&gt;</span> {
         <span class="kw">super</span>::<span class="ident">init</span>();
         <span class="kw">let</span> <span class="ident">obj_ptr</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">rusty_tcl_sys</span>::<span class="ident">Tcl_NewObj</span>() };
@@ -162,7 +167,6 @@
         <span class="kw">super</span>::<span class="ident">init</span>();
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">this</span> <span class="op">=</span> <span class="self">Self</span> {
             <span class="ident">obj_ptr</span>: <span class="ident">NonNull</span>::<span class="ident">new</span>(<span class="ident">obj_ptr</span>).<span class="ident">ok_or</span>(<span class="ident">TclError</span>::<span class="ident">NullPointer</span>)<span class="question-mark">?</span>,
-            <span class="ident">is_alive</span>: <span class="bool-val">true</span>,
         };
         <span class="ident">this</span>.<span class="ident">incr_ref_count</span>();
         <span class="prelude-val">Ok</span>(<span class="ident">this</span>)
@@ -171,8 +175,6 @@
     <span class="comment">// TODO: Use the `Tcl_IncrRefCount` macro here instead.</span>
     <span class="comment">// XXX: Do we need `ptr::read_unaligned`?</span>
     <span class="kw">fn</span> <span class="ident">incr_ref_count</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">is_alive</span>);
-
         <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">obj_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">obj_ptr</span>.<span class="ident">as_ptr</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tcl_obj</span> <span class="op">=</span> <span class="ident">ptr</span>::<span class="ident">read_unaligned</span>(<span class="ident">obj_ptr</span>);
@@ -182,8 +184,6 @@
     }
 
     <span class="kw">fn</span> <span class="ident">decr_ref_count</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">is_alive</span>);
-
         <span class="kw">let</span> <span class="ident">should_free</span> <span class="op">=</span> <span class="kw">unsafe</span> {
             <span class="kw">let</span> <span class="ident">obj_ptr</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">obj_ptr</span>.<span class="ident">as_ptr</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tcl_obj</span> <span class="op">=</span> <span class="ident">ptr</span>::<span class="ident">read_unaligned</span>(<span class="ident">obj_ptr</span>);
@@ -196,7 +196,6 @@
             <span class="kw">unsafe</span> {
                 <span class="ident">rusty_tcl_sys</span>::<span class="ident">TclFreeObj</span>(<span class="self">self</span>.<span class="ident">obj_ptr</span>.<span class="ident">as_ptr</span>());
             }
-            <span class="self">self</span>.<span class="ident">is_alive</span> <span class="op">=</span> <span class="bool-val">false</span>;
             <span class="bool-val">true</span>
         } <span class="kw">else</span> {
             <span class="bool-val">false</span>
@@ -205,11 +204,25 @@
 
     <span class="doccomment">/// Returns `true` if there are multiple [`TclObj`]s that point to the same underlying struct.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_shared</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-&gt;</span> <span class="ident">bool</span> {
-        <span class="macro">assert</span><span class="macro">!</span>(<span class="self">self</span>.<span class="ident">is_alive</span>);
         <span class="kw">let</span> <span class="ident">obj_struct</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="kw-2">*</span>(<span class="self">self</span>.<span class="ident">obj_ptr</span>.<span class="ident">as_ptr</span>()) };
         <span class="ident">obj_struct</span>.<span class="ident">refCount</span> <span class="op">&gt;</span> <span class="number">1</span>
     }
 }
+
+<span class="kw">impl</span> ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">TclObj</span> {
+    <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span>) <span class="op">-&gt;</span> ::<span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
+        <span class="kw">let</span> <span class="ident">string_repr</span> <span class="op">=</span> <span class="kw">unsafe</span> {
+            <span class="kw">let</span> <span class="ident">c_str</span> <span class="op">=</span> <span class="ident">rusty_tcl_sys</span>::<span class="ident">Tcl_GetStringFromObj</span>(<span class="self">self</span>.<span class="ident">obj_ptr</span>.<span class="ident">as_ptr</span>(), <span class="ident">ptr</span>::<span class="ident">null_mut</span>());
+
+            <span class="comment">// XXX: Use `CStr::from_bytes_with_nul`?</span>
+            <span class="ident">CStr</span>::<span class="ident">from_ptr</span>(<span class="ident">c_str</span>).<span class="ident">to_str</span>().<span class="ident">unwrap</span>()
+        };
+
+        <span class="ident">f</span>.<span class="ident">write_str</span>(<span class="ident">string_repr</span>)
+    }
+}
+
+<span class="comment">// `ToString` is free!</span>
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
 <span class="kw">mod</span> <span class="ident">tests</span> {
@@ -218,6 +231,7 @@
     <span class="attribute">#[<span class="ident">test</span>]</span>
     <span class="kw">fn</span> <span class="ident">should_share_on_clone</span>() {
         <span class="kw">let</span> <span class="ident">obj1</span> <span class="op">=</span> <span class="ident">TclObj</span>::<span class="ident">new</span>().<span class="ident">unwrap</span>();
+        <span class="macro">assert</span><span class="macro">!</span>(<span class="op">!</span><span class="ident">obj1</span>.<span class="ident">is_shared</span>());
 
         {
             <span class="kw">let</span> <span class="ident">obj2</span> <span class="op">=</span> <span class="ident">obj1</span>.<span class="ident">clone</span>();
